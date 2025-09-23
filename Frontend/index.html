@@ -12,41 +12,94 @@
         --accent:#c084fc; --text:#ECEAF4; --muted:#b6a9d0; --ring:0 0 0 2px rgba(124,58,237,.5);
         --danger:#ff6b6b; --danger-bg:#3b0d14;
       }
-      *{box-sizing:border-box} html,body,#root{height:100%}
-      body{margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Ubuntu,Arial;
+      *{box-sizing:border-box}
+      html,body,#root{height:100%}
+
+      body{
+        margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Ubuntu,Arial;
         color:var(--text);
-        background: radial-gradient(1000px 600px at 20% -10%, #2a174a 0%, transparent 60%),
-                    radial-gradient(800px 600px at 100% 100%, #3c0a5c 0%, transparent 50%),
-                    linear-gradient(160deg, var(--bg-start), var(--bg-end));}
+        background:
+          radial-gradient(1000px 600px at 20% -10%, #2a174a 0%, transparent 60%),
+          radial-gradient(800px 600px at 100% 100%, #3c0a5c 0%, transparent 50%),
+          linear-gradient(160deg, var(--bg-start), var(--bg-end));
+      }
+
       .layout{display:grid; grid-template-columns:1fr; min-height:100vh}
       @media(min-width:980px){.layout{grid-template-columns:1.2fr 1fr}}
-      .brand{position:relative; display:none; background:radial-gradient(1200px 600px at 20% 20%, #2f114d88 0%, transparent 70%)}
+
+      .brand{position:relative; display:none;
+        background:radial-gradient(1200px 600px at 20% 20%, #2f114d88 0%, transparent 70%)}
       @media(min-width:980px){.brand{display:block}}
+
       .brand-inner{height:100%; padding:64px; display:flex; flex-direction:column; gap:20px; justify-content:center}
-      .brand h1{font-size:54px; margin:8px 0; background:linear-gradient(90deg,#c084fc,#9d4edd,#7c3aed);
-        -webkit-background-clip:text; background-clip:text; color:transparent}
-      .tag{color:var(--muted)} .shine{position:absolute; inset:auto -100px 10% -100px; height:220px; filter:blur(80px);
+      .brand h1{
+        font-size:54px; margin:8px 0;
+        background:linear-gradient(90deg,#c084fc,#9d4edd,#7c3aed);
+        -webkit-background-clip:text; background-clip:text; color:transparent;
+      }
+      .tag{color:var(--muted)}
+      .shine{position:absolute; inset:auto -100px 10% -100px; height:220px; filter:blur(80px);
         background:conic-gradient(from 120deg at 50% 50%, #9d4edd33, #ff3cac33, #2b86c533, transparent 40%)}
       .brand-footer{position:absolute; bottom:24px; left:64px; color:#9c8dbd; font-size:12px}
+
       .panel{display:grid; place-items:center; padding:48px 24px}
-      .card{width:min(480px,90%); padding:32px; border-radius:20px; background:linear-gradient(180deg, #ffffff14, #ffffff0f);
-        border:1px solid #ffffff1c; box-shadow:0 10px 30px #0006, inset 0 1px 0 #ffffff0f; animation:float 14s ease-in-out infinite}
+
+      .card{
+        width:min(480px,90%); padding:32px; border-radius:20px;
+        background:linear-gradient(180deg, #ffffff14, #ffffff0f);
+        border:1px solid #ffffff1c; box-shadow:0 10px 30px #0006, inset 0 1px 0 #ffffff0f;
+        animation:float 14s ease-in-out infinite;
+      }
       @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-      h2{font-size:28px; margin:4px 0} .sub{margin:0 0 20px; color:var(--muted)}
+
+      h2{font-size:28px; margin:4px 0}
+      .sub{margin:0 0 20px; color:var(--muted)}
+
+      /* -------- Formulario unificado -------- */
       .form{display:flex; flex-direction:column; gap:16px}
+
       .field span{display:block; margin-bottom:6px; color:#d6c7f7; font-size:14px}
-      input[type="email"], .pwd input{width:100%; padding:14px; border-radius:12px; border:1px solid #ffffff1f; background:#0f0b1a; color:var(--text)}
-      input::placeholder{color:#a28bc6} input:focus{box-shadow:var(--ring); border-color:#b28cff55}
+
+      /* TODOS los inputs iguales */
+      .form input{
+        width:100%;
+        height:44px;            /* altura consistente (match con el ojito) */
+        padding:0 14px;         /* altura la da 'height' */
+        border-radius:12px;
+        border:1px solid #ffffff1f;
+        background:#0f0b1a;
+        color:var(--text);
+      }
+      .form input::placeholder{color:#a28bc6}
+      .form input:focus{box-shadow:var(--ring); border-color:#b28cff55}
+
+      /* Password con botón ojito */
       .pwd{display:flex; align-items:center; gap:8px}
-      .pwd .ghost{min-width:40px; height:44px; border-radius:12px; display:grid; place-items:center; border:1px solid #ffffff12; background:#0f0b1a; color:#d5c9f5; cursor:pointer}
-      .row{display:flex; align-items:center; gap:12px} .between{justify-content:space-between}
-      .check{display:flex; align-items:center; gap:8px; color:#d7cfff} .check input{accent-color:#7c3aed}
-      .link{color:#c084fc; text-decoration:none} .link:hover{text-decoration:underline}
+      .pwd input{flex:1}
+      .pwd .ghost{
+        min-width:40px; height:44px; border-radius:12px; display:grid; place-items:center;
+        border:1px solid #ffffff12; background:#0f0b1a; color:#d5c9f5; cursor:pointer;
+      }
+
+      .row{display:flex; align-items:center; gap:12px}
+      .between{justify-content:space-between}
+
+      .check{display:flex; align-items:center; gap:8px; color:#d7cfff}
+      .check input{accent-color:#7c3aed}
+
+      .link{color:#c084fc; text-decoration:none}
+      .link:hover{text-decoration:underline}
+
       .btn{width:100%; padding:14px 16px; border-radius:14px; border:1px solid transparent; font-weight:700; cursor:pointer}
       .btn.primary{background:linear-gradient(90deg,#7c3aed,#a21caf); color:#fff; box-shadow:0 6px 20px #7c3aed55}
+
       .foot{margin-top:8px; text-align:center; color:#cfc3f1}
-      .logo-img{width:88px; height:88px; object-fit:cover; border-radius:20px; box-shadow:0 6px 30px #0008, 0 0 0 8px #ffffff0f; display:block}
-      .error{margin-top:4px; padding:10px 12px; border-radius:10px; border:1px solid #ff6b6b55; background:#3b0d14; color:#ffd0d0}
+
+      .logo-img{width:88px; height:88px; object-fit:cover; border-radius:20px;
+        box-shadow:0 6px 30px #0008, 0 0 0 8px #ffffff0f; display:block}
+
+      .error{margin-top:4px; padding:10px 12px; border-radius:10px;
+        border:1px solid #ff6b6b55; background:#3b0d14; color:#ffd0d0}
     </style>
   </head>
   <body>

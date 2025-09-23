@@ -1,14 +1,20 @@
+/* global React, ReactDOM */
 const { useState } = React;
 
 function App(){
+  const [mode, setMode] = useState("login"); // "login" | "register"
   return (
     <div className="min-h-screen">
-      <LoginScreen />
+      {mode === "login"
+        ? <LoginScreen onGoRegister={() => setMode("register")} />
+        : <RegisterScreen onGoLogin={() => setMode("login")} />
+      }
     </div>
   );
 }
 
-function LoginScreen(){
+/* =================== LOGIN =================== */
+function LoginScreen({ onGoRegister }){
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -49,7 +55,7 @@ function LoginScreen(){
           <p className="tag">Escucha tus emociones</p>
           <div className="shine" />
         </div>
-        <footer className="brand-footer">© {new Date().getFullYear()} Equipo José & Paula</footer>
+        <footer className="brand-footer">© {new Date().getFullYear()} </footer>
       </aside>
 
       <main className="panel">
@@ -82,7 +88,7 @@ function LoginScreen(){
 
             <div className="row between">
               <label className="check"><input type="checkbox"/><span>Recuérdame</span></label>
-              <a className="link" href="#">¿Olvidaste tu contraseña?</a>
+              <a className="link" href="#" onClick={(e)=>e.preventDefault()}>¿Olvidaste tu contraseña?</a>
             </div>
 
             {error && <div className="error">{error}</div>}
@@ -91,7 +97,11 @@ function LoginScreen(){
               {loading ? "Entrando…" : "Entrar"}
             </button>
 
-            <p className="foot">¿No tienes cuenta? <a className="link" href="#">Crear cuenta</a></p>
+            <p className="foot">¿No tienes cuenta?{" "}
+              <a className="link" href="#" onClick={(e)=>{e.preventDefault(); onGoRegister();}}>
+                Crear cuenta
+              </a>
+            </p>
           </form>
         </div>
       </main>
@@ -99,6 +109,124 @@ function LoginScreen(){
   );
 }
 
+/* =================== REGISTRO =================== */
+function RegisterScreen({ onGoLogin }){
+  const [showPwd, setShowPwd] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+  const [okMsg, setOkMsg]   = useState("");
+
+  async function handleSubmit(e){
+    e.preventDefault();
+    setError(""); setOkMsg("");
+    const form = new FormData(e.currentTarget);
+    const nombre   = form.get("nombre")?.trim();
+    const email    = form.get("email")?.trim().toLowerCase();
+    const password = form.get("password") || "";
+    const confirm  = form.get("confirm") || "";
+
+    if(!nombre || !email || !password){
+      setError("Completa los campos requeridos."); return;
+    }
+    if(password.length < 8){
+      setError("La contraseña debe tener al menos 8 caracteres."); return;
+    }
+    if(password !== confirm){
+      setError("Las contraseñas no coinciden."); return;
+    }
+
+    try{
+      setLoading(true);
+      const res = await fetch((window.API_URL || "") + "/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, email, password })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if(!res.ok){
+        throw new Error(data?.error || "No se pudo crear la cuenta");
+      }
+      setOkMsg("¡Cuenta creada! Ahora inicia sesión.");
+      // Limpiar formulario
+      e.currentTarget.reset();
+      setShowPwd(false);
+    }catch(err){
+      setError(err.message || "Error al registrar");
+    }finally{
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="layout">
+      <aside className="brand">
+        <div className="brand-inner">
+          <Logo />
+          <h1>Ánima</h1>
+          <p className="tag">Escucha tus emociones</p>
+          <div className="shine" />
+        </div>
+        <footer className="brand-footer">© {new Date().getFullYear()} </footer>
+      </aside>
+
+      <main className="panel">
+        <div className="card">
+          <h2>Crea tu cuenta</h2> 
+          <p className="sub">Regístrate para continuar</p>
+
+          <form className="form" onSubmit={handleSubmit} noValidate>
+            <label className="field">
+              <span>Nombre completo</span>
+              <input name="nombre" type="text" placeholder="Nombre" required />
+            </label>
+
+            <label className="field">
+              <span>Correo electrónico</span>
+              <input name="email" type="email" placeholder="tu@email.com" required />
+            </label>
+
+            <label className="field">
+              <span>Contraseña</span>
+              <div className="pwd">
+                <input
+                  name="password"
+                  type={showPwd ? "text" : "password"}
+                  placeholder="Mínimo 8 caracteres"
+                  required
+                />
+                <button type="button" className="ghost"
+                        onClick={() => setShowPwd(v => !v)}
+                        aria-label={showPwd ? "Ocultar" : "Mostrar"}>
+                  <Eye show={!showPwd}/>
+                </button>
+              </div>
+            </label>
+
+            <label className="field">
+              <span>Confirmar contraseña</span>
+              <input name="confirm" type={showPwd ? "text" : "password"} placeholder="Repite tu contraseña" required />
+            </label>
+
+            {error && <div className="error">{error}</div>}
+            {okMsg && <div className="error" style={{borderColor:'#54d6a155', background:'#0f1a14', color:'#c9ffe3'}}>{okMsg}</div>}
+
+            <button className="btn primary" type="submit" disabled={loading}>
+              {loading ? "Creando cuenta…" : "Crear cuenta"}
+            </button>
+
+            <p className="foot">¿Ya tienes cuenta?{" "}
+              <a className="link" href="#" onClick={(e)=>{e.preventDefault(); onGoLogin();}}>
+                Inicia sesión
+              </a>
+            </p>
+          </form>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* ================ UI helpers ================ */
 function Eye({show}){
   return show ? (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
