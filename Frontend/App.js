@@ -1,5 +1,7 @@
 /* global React, ReactDOM */
 const { useState } = React;
+const API_BASE = window.API_URL || "http://localhost:4000";
+
 
 function App(){
   const [mode, setMode] = useState("login"); // "login" | "register"
@@ -20,31 +22,37 @@ function LoginScreen({ onGoRegister }){
   const [error, setError] = useState("");
 
   async function handleSubmit(e){
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    const form = new FormData(e.currentTarget);
-    const body = { email: form.get("email"), password: form.get("password") };
+  e.preventDefault();
+  setError("");
+  setLoading(true);
+  const form = new FormData(e.currentTarget);
+  const body = { email: form.get("email"), password: form.get("password") };
 
-    try{
-      const res = await fetch((window.API_URL || "") + "/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      if(!res.ok){
-        const msg = await res.text();
-        throw new Error(msg || "Credenciales inválidas");
-      }
-      const data = await res.json();
-      localStorage.setItem("token", data.token);
-      alert("¡Login exitoso! (token guardado)");
-    }catch(err){
-      setError(err.message || "Error al iniciar sesión");
-    }finally{
-      setLoading(false);
+  try{
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(()=> ({}));
+
+    if(!res.ok){
+      throw new Error(data?.message || "Credenciales inválidas");
     }
+
+    // Guarda sesión
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+
+    alert("¡Login exitoso! (token guardado)");
+    // TODO: aquí puedes redirigir a /analizar o /historial
+    // window.location.href = "/analizar";
+  }catch(err){
+    setError(err.message || "Error al iniciar sesión");
+  }finally{
+    setLoading(false);
   }
+}
 
   return (
     <div className="layout">
@@ -117,45 +125,54 @@ function RegisterScreen({ onGoLogin }){
   const [okMsg, setOkMsg]   = useState("");
 
   async function handleSubmit(e){
-    e.preventDefault();
-    setError(""); setOkMsg("");
-    const form = new FormData(e.currentTarget);
-    const nombre   = form.get("nombre")?.trim();
-    const email    = form.get("email")?.trim().toLowerCase();
-    const password = form.get("password") || "";
-    const confirm  = form.get("confirm") || "";
+  e.preventDefault();
+  setError(""); setOkMsg("");
 
-    if(!nombre || !email || !password){
-      setError("Completa los campos requeridos."); return;
-    }
-    if(password.length < 8){
-      setError("La contraseña debe tener al menos 8 caracteres."); return;
-    }
-    if(password !== confirm){
-      setError("Las contraseñas no coinciden."); return;
-    }
+  const formEl = e.currentTarget;              // ⬅️ guarda la referencia al <form>
+  const form = new FormData(formEl);
+  const nombre   = form.get("nombre")?.trim();
+  const email    = form.get("email")?.trim().toLowerCase();
+  const password = form.get("password") || "";
+  const confirm  = form.get("confirm") || "";
 
-    try{
-      setLoading(true);
-      const res = await fetch((window.API_URL || "") + "/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, email, password })
-      });
-      const data = await res.json().catch(()=> ({}));
-      if(!res.ok){
-        throw new Error(data?.error || "No se pudo crear la cuenta");
-      }
-      setOkMsg("¡Cuenta creada! Ahora inicia sesión.");
-      // Limpiar formulario
-      e.currentTarget.reset();
-      setShowPwd(false);
-    }catch(err){
-      setError(err.message || "Error al registrar");
-    }finally{
-      setLoading(false);
-    }
+  if(!nombre || !email || !password){
+    setError("Completa los campos requeridos."); return;
   }
+  if(password.length < 8){
+    setError("La contraseña debe tener al menos 8 caracteres."); return;
+  }
+  if(password !== confirm){
+    setError("Las contraseñas no coinciden."); return;
+  }
+
+  try{
+    setLoading(true);
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, displayName: nombre })
+    });
+    const data = await res.json().catch(()=> ({}));
+    if(!res.ok){
+      throw new Error(data?.message || "No se pudo crear la cuenta");
+    }
+
+    // ✅ ahora sí: usar la referencia guardada
+    formEl.reset();
+    setShowPwd(false);
+    setError("");
+    setOkMsg("¡Cuenta creada! Ahora inicia sesión.");
+    // opcional: pasar directo a login
+    // onGoLogin();
+  }catch(err){
+    setOkMsg("");
+    setError(err.message || "Error al registrar");
+  }finally{
+    setLoading(false);
+  }
+}
+
+
 
   return (
     <div className="layout">

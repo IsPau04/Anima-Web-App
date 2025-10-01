@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import { query } from './db/pool.js';
 import authRoutes from './routes/auth.routes.js';
+import { authRequired } from './middlewares/auth.js';
+
 
 dotenv.config();
 const app = express();
@@ -26,6 +28,16 @@ app.get('/health/db', async (_req, res) => {
     console.error(e);
     res.status(500).json({ ok:false, error:'DB_ERROR' });
   }
+});
+
+app.get('/perfil', authRequired, async (req, res) => {
+  const { rows } = await query(
+    `SELECT id, email, display_name, estado, creado_en, actualizado_en, ultimo_login_en
+     FROM anima.usuarios WHERE id = $1`,
+    [req.user.id]
+  );
+  if (!rows.length) return res.status(404).json({ message: 'No encontrado' });
+  res.json(rows[0]);
 });
 
 // Rutas reales de auth (Postgres + AES-256 en funciones SQL)
