@@ -1,35 +1,91 @@
-/* global React, ReactDOM */
-const { useState } = React;
+/* global React, ReactDOM, Babel */
+const { useState, useEffect } = React;
 const API_BASE = window.API_URL || "http://localhost:4000";
 
 /* =================== APP ROOT =================== */
 function App(){
-  const [mode, setMode] = useState("home"); // "home" | "login" | "register"
+  const [mode, setMode]   = useState("home"); // "home" | "login" | "register" | "test"
+  const [TestC, setTestC] = useState(null);   // componente TestPage cuando esté listo
+  const [loadErr, setLoadErr] = useState("");
+  
+
+  useEffect(() => {
+    if (mode !== "test") return;
+
+    async function loadTest() {
+      try {
+        setLoadErr("");
+        // Evita que TestPage.js haga auto-render cuando lo evaluemos
+        window.__ANIMA_EMBEDDED_APP__ = true;
+
+        // Si ya está disponible, úsalo
+        if (window.TestPage) {
+          setTestC(() => window.TestPage);
+          return;
+        }
+
+        // Necesitamos Babel Standalone presente (lo tienes en index.html)
+        if (!window.Babel) {
+          throw new Error("Babel no está cargado en index.html");
+        }
+
+        // 1) Leer el archivo fuente
+        const res = await fetch("./TestPage.js", { cache: "no-store" });
+        if (!res.ok) throw new Error("No se pudo leer TestPage.js");
+        const src = await res.text();
+
+        // 2) Transpilar JSX -> JS
+        const compiled = Babel.transform(src, { presets: ["react"] }).code;
+
+        // 3) Ejecutar el código compilado (define window.TestPage)
+        //   Usa Function para mantener scope global
+        new Function(compiled)();
+
+        if (window.TestPage) {
+          setTestC(() => window.TestPage);
+        } else {
+          throw new Error("TestPage no se exportó correctamente");
+        }
+      } catch (err) {
+        console.error(err);
+        setLoadErr(err.message || "Error cargando TestPage");
+      }
+    }
+
+    loadTest();
+  }, [mode]);
 
   const handlers = {
     onGoLogin:    () => setMode("login"),
     onGoRegister: () => setMode("register"),
     onGoAccount:  () => alert("Mi cuenta (pendiente)"),
-    onGoScan:     () => alert("Escanear (pendiente)"),
-    onTryTest:    () => alert("Ir al Test (pendiente)")
+    onTryTest:    () => setMode("test"), // abre el modo Test dentro del App
   };
 
   return (
     <div className="min-h-screen">
-      {mode === "home" && (
-        <HomeScreen {...handlers} />
-      )}
+      {mode === "home" && <HomeScreen {...handlers} />}
+
       {mode === "login" && (
         <LoginScreen
           onGoRegister={() => setMode("register")}
           onGoHome={() => setMode("home")}
         />
       )}
+
       {mode === "register" && (
         <RegisterScreen
           onGoLogin={() => setMode("login")}
           onGoHome={() => setMode("home")}
         />
+      )}
+
+      {mode === "test" && (
+        loadErr
+          ? <div style={{color:"#fff", padding:24}}>Error: {loadErr}</div>
+          : (TestC
+              ? <TestC />
+              : <div style={{color:"#fff", padding:24}}>Cargando Test…</div>)
       )}
     </div>
   );
@@ -40,7 +96,6 @@ function HomeScreen({
   onGoLogin,
   onGoRegister,
   onGoAccount,
-  onGoScan,
   onTryTest
 }){
   // Paleta y estilos inline (compatibles con tu setup)
@@ -115,14 +170,19 @@ function HomeScreen({
             <div style={{width:32,height:32,borderRadius:10,background:`linear-gradient(135deg,${C.mag},${C.mor})`, boxShadow:"0 10px 30px rgba(0,0,0,.4)"}} />
             <strong>Ánima</strong>
           </a>
+          
+          {/* 
           <nav style={{display:"flex", gap:4}}>
             <a href="#" onClick={(e)=>e.preventDefault()} style={S.navA}>Inicio</a>
             <a href="#" onClick={(e)=>e.preventDefault()} style={S.navA}>Analizar</a>
             <a href="#" onClick={(e)=>e.preventDefault()} style={S.navA}>Historial</a>
             <a href="#" onClick={(e)=>e.preventDefault()} style={S.navA}>Soporte</a>
           </nav>
+        */}
+
+        
           <div style={{display:"flex", gap:8}}>
-            <button style={S.btn("ghost")} onClick={onGoScan}>Escanear</button>
+            <button style={S.btn("ghost")} onClick={onTryTest}>Escanear</button>
             <button style={S.btn("ghost")} onClick={onGoLogin}>Iniciar sesión</button>
             <button style={S.btn("grad")}  onClick={onGoRegister}>Crear cuenta</button>
             <button style={S.btn("ghost")} onClick={onGoAccount}>Mi cuenta ▾</button>
@@ -132,9 +192,11 @@ function HomeScreen({
 
       {/* HERO */}
       <section style={{...S.container, ...S.hero}}>
+       {/*
         <div style={{display:"flex", gap:16, alignItems:"center", flexWrap:"wrap"}}>
-          <span style={S.scanChip} onClick={onGoScan}>Escanear</span>
-        </div>
+          <span style={S.scanChip} onClick={onTryTest}>Escanear</span>
+        </div>*/}
+
         <h1 style={S.h1}>Desde usuarios hasta equipos, Ánima es la forma moderna de elegir música con emociones</h1>
         <p style={S.lead}>
           Únete a la comunidad que ya descubre playlists personalizadas con un simple escaneo.
@@ -459,8 +521,8 @@ function Eye({show}){
 
 function Logo(){
   return (
-    <div className="logo">
-      <img src="./Logo-Anima.jpg" alt="Logo Ánima" className="logo-img" width="128" height="128" loading="eager" />
+    <div className="logo"> 
+      <img src="./images/Logo-Anima.jpg" alt="Logo Ánima" className="logo-img" width="128" height="128" loading="eager" />
     </div>
   );
 }
