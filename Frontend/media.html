@@ -1,0 +1,24 @@
+<!-- Frontend/media.html -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Media Test — Foto / Cámara</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- React via CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Tu componente (lo creamos en el paso 2) -->
+  <script src="./MediaCapture.js"></script>
+
+  <script>
+    // Montar el componente en esta página:
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(window.MediaCapture));
+  </script>
+</body>
+</html>
