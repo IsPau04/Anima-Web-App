@@ -1,31 +1,72 @@
-/* Frontend/MediaCapture.js */
 /* global React, ReactDOM */
 (function () {
   const { useRef, useState, useEffect } = React;
-  const API_BASE = window.API_URL || "http://localhost:4000"; // backend
+
+  // Paleta Ánima 
+  const C = {
+    bg1:"#2A1541", bg2:"#120F1E", bg3:"#1A1230",
+    mor:"#6C63FF", mag:"#FF2DAA",
+    text:"#FFFFFF", text2:"#C9C9D1", card:"#1B1727",
+    border:"rgba(255,255,255,.12)"
+  };
+
+  const S = {
+    page:{
+      minHeight:"100vh", color:C.text,
+      background:`linear-gradient(120deg,${C.bg1} 0%, ${C.bg2} 55%, ${C.bg3} 100%)`,
+      fontFamily:"system-ui, Segoe UI, Inter, Roboto, Arial"
+    },
+    container:{maxWidth:1200, margin:"0 auto", padding:"24px"},
+    header:{
+      position:"sticky", top:0, zIndex:10,
+      background:"rgba(0,0,0,.12)", borderBottom:`1px solid ${C.border}`,
+      backdropFilter:"saturate(120%) blur(6px)"
+    },
+    row:{display:"flex", alignItems:"center", justifyContent:"space-between", gap:16},
+    logo:{width:32, height:32, borderRadius:10,
+      background:`linear-gradient(135deg,${C.mag},${C.mor})`, boxShadow:"0 10px 30px rgba(0,0,0,.4)"},
+    btn:(kind)=>({
+      display:"inline-block", padding:"10px 16px", borderRadius:14, textDecoration:"none",
+      color:"#fff", fontWeight:600, cursor:"pointer",
+      ...(kind==="ghost" && { border:`1px solid ${C.border}`, color:"#e5e5f5", background:"transparent" }),
+      ...(kind==="grad"  && { background:`linear-gradient(90deg,${C.mag},${C.mor})` }),
+      ...(kind==="soft"  && { background:"rgba(255,255,255,.06)", border:`1px solid ${C.border}` }),
+      ...(kind==="disabled" && { opacity:.5, cursor:"not-allowed" })
+    }),
+    grid:{display:"grid", gap:20, gridTemplateColumns:"repeat(2, 1fr)", alignItems:"start", marginTop:24},
+    card:{background:"rgba(27,23,39,.72)", border:`1px solid ${C.border}`, borderRadius:18, padding:18, backdropFilter:"blur(8px)"},
+    videoBox:{width:"100%", aspectRatio:"16/9", background:"#000", borderRadius:12, overflow:"hidden", border:`1px solid ${C.border}`},
+    preview:{width:"100%", borderRadius:12, border:`1px solid ${C.border}`},
+    tip:{fontSize:13, color:C.text2},
+    badge:{display:"inline-block", padding:"6px 10px", borderRadius:999, border:`1px solid ${C.border}`, color:"#E7E7FF", fontSize:12},
+    footer:{color:"#A0A0BE", fontSize:13, marginTop:28}
+  };
 
   function MediaCapture() {
+    // Referencias y estado
     const videoRef = useRef(null);
-    const canvasRef = useRef(null);
+    const canvasRef = useRef(null); 
     const fileInputRef = useRef(null);
-    const imageRef = useRef(null);          // preview <img>
-    const overlayRef = useRef(null);        // canvas overlay
+    const imageRef = useRef(null);
+    const overlayRef = useRef(null);
+
     const [stream, setStream] = useState(null);
     const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
     const [capturedBlob, setCapturedBlob] = useState(null);
     const [rekResult, setRekResult] = useState(null);
     const [error, setError] = useState(null);
+    const [busy, setBusy] = useState(false);
 
-    // Limpia la cámara al salir
-    useEffect(() => () => stopCamera(), []);
-
-    // Redibuja cajas si cambia el tamaño de la ventana
+    // Cleanup al desmontar
     useEffect(() => {
-      const onResize = () => drawBoxes();
-      window.addEventListener('resize', onResize);
-      return () => window.removeEventListener('resize', onResize);
-    }, [rekResult, photoPreviewUrl]);
+      return () => {
+        if (stream) {
+          stream.getTracks().forEach(t => t.stop());
+        }
+      };
+    }, [stream]);
 
+    // Handlers
     function askForFile() {
       setError(null);
       if (fileInputRef.current) fileInputRef.current.click();
@@ -46,12 +87,10 @@
       try {
         const s = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false,
+          audio: false
         });
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
-          await videoRef.current.play();
-        }
+        videoRef.current.srcObject = s;
+        await videoRef.current.play();
         setStream(s);
         setPhotoPreviewUrl(null);
         setCapturedBlob(null);
@@ -68,7 +107,6 @@
         setStream(null);
       }
       if (videoRef.current) {
-        videoRef.current.pause();
         videoRef.current.srcObject = null;
       }
     }
@@ -81,10 +119,6 @@
 
       const w = video.videoWidth;
       const h = video.videoHeight;
-      if (!w || !h) {
-        setError("La cámara aún no inicializa el tamaño del video. Intenta de nuevo.");
-        return;
-      }
       canvas.width = w;
       canvas.height = h;
 
@@ -92,161 +126,154 @@
       ctx.drawImage(video, 0, 0, w, h);
 
       canvas.toBlob((blob) => {
-        if (!blob) {
-          setError("No se pudo capturar la imagen.");
-          return;
-        }
-        setCapturedBlob(blob);
         const url = URL.createObjectURL(blob);
         setPhotoPreviewUrl(url);
+        setCapturedBlob(blob);
         setRekResult(null);
       }, "image/jpeg", 0.92);
     }
 
-    async function analyzeFaces() {
-      setError(null);
-      if (!capturedBlob) {
-        setError("Primero sube o captura una foto.");
-        return;
-      }
-      try {
-        const fd = new FormData();
-        fd.append('image', capturedBlob, 'foto.jpg');
-
-        const resp = await fetch(`${API_BASE}/api/rekognition/detect-faces`, {
-          method: 'POST',
-          body: fd
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data?.error || 'Error en análisis');
-
-        setRekResult(data);
-        setTimeout(drawBoxes, 0);
-      } catch (e) {
-        console.error(e);
-        setError("No se pudo analizar la imagen. Revisa la consola.");
-      }
+        // Modificar el handler del botón Inicio
+    function goHome(e) {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent('anima:goHome'));
     }
 
-    function onPreviewLoad() {
-      drawBoxes();
-    }
-
-    function drawBoxes() {
-      const img = imageRef.current;
-      const overlay = overlayRef.current;
-      if (!img || !overlay || !rekResult?.faces?.length) {
-        if (overlay) {
-          const ctx = overlay.getContext('2d');
-          ctx && ctx.clearRect(0, 0, overlay.width, overlay.height);
-        }
-        return;
-      }
-      const dispW = img.clientWidth;
-      const dispH = img.clientHeight;
-      overlay.width = dispW;
-      overlay.height = dispH;
-
-      const ctx = overlay.getContext('2d');
-      ctx.clearRect(0, 0, dispW, dispH);
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = 'lime';
-      ctx.font = '14px system-ui';
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
-
-      rekResult.faces.forEach((f, i) => {
-        const bb = f.boundingBox; // valores 0..1
-        const x = bb.Left * dispW;
-        const y = bb.Top * dispH;
-        const wBox = bb.Width * dispW;
-        const hBox = bb.Height * dispH;
-
-        ctx.strokeRect(x, y, wBox, hBox);
-
-        const topEmotion = (f.emotionsTop3?.[0]?.Type) || 'FACE';
-        const label = `#${i + 1} ${topEmotion}`;
-        const pad = 4;
-        const textW = ctx.measureText(label).width;
-        const boxW = textW + pad * 2;
-        const boxH = 18 + pad * 2;
-        const labelY = Math.max(y - boxH, 0);
-
-        ctx.fillRect(x, labelY, boxW, boxH);
-        ctx.fillStyle = 'white';
-        ctx.fillText(label, x + pad, labelY + 14 + pad - 4);
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-      });
-    }
-
+    // UI rendering
     return React.createElement(
       "div",
-      { style: { maxWidth: 720, margin: "20px auto", fontFamily: "system-ui, sans-serif" } },
-      React.createElement("h2", null, "Prueba de Medios: Subir foto / Usar cámara"),
-      React.createElement("p", null, "Página de guía (sin diseño). Captura/sube imagen y analiza con AWS Rekognition."),
-
-      // Botones
-      React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", margin: "12px 0" } },
-        React.createElement("button", { onClick: askForFile }, "Subir foto (archivo)"),
-        React.createElement("button", { onClick: startCamera }, "Usar cámara"),
-        React.createElement("button", { onClick: captureFrame, disabled: !stream }, "Capturar foto"),
-        React.createElement("button", { onClick: stopCamera, disabled: !stream }, "Detener cámara"),
-        React.createElement("button", { onClick: analyzeFaces, disabled: !capturedBlob }, "Analizar rostro (AWS)"),
-      ),
-
-      // Input oculto
-      React.createElement("input", {
-        ref: fileInputRef,
-        type: "file",
-        accept: "image/*",
-        capture: "environment",
-        style: { display: "none" },
-        onChange: onFilePicked,
-      }),
-
-      // Vista de cámara
-      React.createElement("div", { style: { margin: "12px 0" } },
-        React.createElement("video", {
-          ref: videoRef,
-          playsInline: true,
-          muted: true,
-          autoPlay: true,
-          style: { width: "100%", maxHeight: 400, background: "#000" },
-        })
-      ),
-
-      // Canvas (oculto) para capturar frame
-      React.createElement("canvas", { ref: canvasRef, style: { display: "none" } }),
-
-      // Preview + overlay
-      photoPreviewUrl &&
-        React.createElement("div", { style: { marginTop: 12 } },
-          React.createElement("h4", null, "Vista previa"),
-          React.createElement("div", { style: { position: "relative", display: "inline-block", maxWidth: "100%" } },
-            React.createElement("img", {
-              ref: imageRef,
-              src: photoPreviewUrl,
-              alt: "preview",
-              onLoad: onPreviewLoad,
-              style: { maxWidth: "100%", height: "auto", display: "block", border: "1px solid #ddd" }
-            }),
-            React.createElement("canvas", {
-              ref: overlayRef,
-              style: { position: "absolute", left: 0, top: 0, pointerEvents: "none", width: "100%", height: "100%" }
-            })
+      { style: S.page },
+      // Header
+      React.createElement("div", { style: S.header },
+        React.createElement("div", { style: {...S.container, ...S.row} },
+          React.createElement("a", {
+            href:"#",
+            onClick: goHome,
+            style: {display:"flex", alignItems:"center", gap:12, color:"#fff", textDecoration:"none"}
+          },
+            React.createElement("div", { style: S.logo }),
+            React.createElement("strong", null, "Ánima")
           ),
-          rekResult && React.createElement("pre", {
-            style: { background: "#111", color: "#0f0", padding: 8, overflow: "auto", maxHeight: 240 }
-          }, JSON.stringify(rekResult, null, 2))
+          React.createElement("a", {
+            style: S.btn("ghost"),
+            href:"#",
+            onClick: goHome
+          }, "Inicio")
+        )
+      ),
+
+      // Main content
+      React.createElement("main", { style: S.container },
+        React.createElement("h1", { style: {margin:"12px 0"} }, "Test de emociones"),
+        React.createElement("p", { style: {color: C.text2, maxWidth:900} },
+          "Subí una foto o usa tu cámara para comenzar el análisis de emociones."
         ),
 
-      // Errores
-      error && React.createElement("p", { style: { color: "crimson" } }, error),
+        React.createElement("div", { style: S.grid },
+          // Left column
+          React.createElement("section", { style: S.card },
+            React.createElement("div", { style: {display:"flex", gap:8, flexWrap:"wrap"} },
+              React.createElement("button", { 
+                style: S.btn("soft"),
+                onClick: askForFile 
+              }, "Subir foto"),
 
-      React.createElement("hr", null),
-      React.createElement("p", null, "El backend debe estar en ", React.createElement("code", null, API_BASE),
-        " con la ruta ", React.createElement("code", null, "/api/rekognition/detect-faces"), ".")
+              !stream && React.createElement("button", {
+                style: S.btn("soft"),
+                onClick: startCamera
+              }, "Usar cámara"),
+
+              stream && React.createElement(React.Fragment, null,
+                React.createElement("button", {
+                  style: S.btn(busy ? "disabled" : "soft"),
+                  onClick: busy ? undefined : captureFrame
+                }, "Capturar foto"),
+                React.createElement("button", {
+                  style: S.btn("soft"),
+                  onClick: stopCamera
+                }, "Detener cámara")
+              ),
+
+              capturedBlob && React.createElement("button", {
+                style: S.btn(busy ? "disabled" : "grad"),
+                onClick: busy ? undefined : () => {
+                  // Notificar análisis
+                  window.dispatchEvent(new CustomEvent('anima:analyze', {
+                    detail: { imageBlob: capturedBlob }
+                  }));
+                }
+              }, "Analizar")
+            ),
+
+            error && React.createElement("div", { style: {color:"crimson", marginTop:12} }, error),
+
+            React.createElement("div", { style: {marginTop:16} },
+              React.createElement("div", { style: S.videoBox },
+                React.createElement("video", {
+                  ref: videoRef,
+                  playsInline: true,
+                  muted: true,
+                  style: {width:"100%", height:"100%", objectFit:"cover"}
+                })
+              )
+            )
+          ),
+
+          // Right column
+          React.createElement("aside", { style: S.card },
+            React.createElement("div", null,
+              React.createElement("div", { style: {display:"flex", alignItems:"center", justifyContent:"space-between"} },
+                React.createElement("h3", { style: {margin:0} }, "Vista previa"),
+                photoPreviewUrl && React.createElement("span", { style: S.badge }, "Imagen lista")
+              ),
+              React.createElement("p", { style: S.tip }, "La imagen capturada aparecerá aquí antes de analizar."),
+
+              photoPreviewUrl
+                ? React.createElement("img", {
+                    ref: imageRef,
+                    src: photoPreviewUrl,
+                    alt: "Preview",
+                    style: S.preview
+                  })
+                : React.createElement("div", {
+                    style: {...S.preview, height:220, display:"grid", placeItems:"center", color:"#8E8EA6"}
+                  }, "Sin imagen seleccionada"),
+
+              React.createElement("input", {
+                ref: fileInputRef,
+                type: "file",
+                accept: "image/*",
+                style: {display:"none"},
+                onChange: onFilePicked
+              }),
+
+              React.createElement("canvas", {
+                ref: canvasRef,
+                style: {display:"none"}
+              }),
+
+              React.createElement("canvas", {
+                ref: overlayRef,
+                style: {
+                  position:"absolute",
+                  left:0, top:0,
+                  pointerEvents:"none",
+                  width:"100%",
+                  height:"100%"
+                }
+              })
+            )
+          )
+        ),
+
+        React.createElement("p", { style: S.footer }, "© ", new Date().getFullYear(), " Ánima")
+      )
     );
   }
 
+  // Export para App.js
   window.MediaCapture = MediaCapture;
+  window.AnimaUI = window.AnimaUI || {};
+  window.AnimaUI.MediaCapture = MediaCapture;
+
 })();
