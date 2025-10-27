@@ -7,77 +7,472 @@ function App(){
   const [mode, setMode]   = useState("home"); // "home" | "login" | "register" | "test"
   const [TestC, setTestC] = useState(null);   // componente TestPage cuando esté listo
   const [loadErr, setLoadErr] = useState("");
-  
+  const [MiCuentaC, setMiCuentaC] = useState(null); // componente MiCuenta cuando esté listo
+  const [miCuentaErr, setMiCuentaErr] = useState("");
 
-  useEffect(() => {
+  //Estado para Resultados
+  const [ResultsC, setResultsC] = useState(null);
+  const [resultsErr, setResultsErr] = useState("");
+  const [resultsProps, setResultsProps] = useState({
+    emotions: null,
+    playlistUrl: "",
+    isLoading: false,
+  });
+
+   // Estado para Olvidé mi contraseña
+  const [ForgotPwdC, setForgotPwdC] = useState(null);
+  const [forgotPwdErr, setForgotPwdErr] = useState("");
+  const [ResetPwdC, setResetPwdC] = useState(null);
+  const [resetPwdErr, setResetPwdErr] = useState("");
+  const [resetData, setResetData] = useState(null); // { email, code, resetToken }
+
+    // Estados para Historial
+  const [HistorialC, setHistorialC] = useState(null);
+  const [historialErr, setHistorialErr] = useState("");
+
+
+
+    // Estado de usuario (lee localStorage si existe)
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("user") || "null"); }
+    catch(e){ return null; }
+  });
+
+ useEffect(() => {
+  const onGoHome = () => setMode("home");
+
+   // Recibir evento desde MediaCapture para iniciar análisis y pasar a Resultados
+   const onAnalyze = async (e) => {
+     const blob = e?.detail?.imageBlob || null;
+     // Placeholder: navegar a resultados en estado de carga
+     setResultsProps({ emotions: null, playlistUrl: "", isLoading: true });
+     setMode("results");
+
+     // Integración backend (ejemplo):
+     // const fd = new FormData(); fd.append("image", blob, "captura.jpg");
+     // const res = await fetch(`${API_BASE}/analyze`, { method: "POST", body: fd });
+     // const data = await res.json();
+     // setResultsProps({ emotions: data.emotions, playlistUrl: data.playlistUrl, isLoading: false });
+
+     // Simulación mientras no hay backend:
+     setTimeout(() => {
+       setResultsProps({
+         emotions: [
+           { name: "Alegría", score: 0.62 },
+           { name: "Sorpresa", score: 0.21 },
+           { name: "Tristeza", score: 0.17 },
+         ],
+         playlistUrl: "",
+         isLoading: false,
+       });
+     }, 900);
+   };
+
+  const onLoggedOut = () => {
+    try { localStorage.removeItem("token"); localStorage.removeItem("user"); } catch(_) {}
+    setUser(null);
+    setMode("home");
+  };
+
+  const onStorage = (e) => {
+    if (e.key === "user") {
+      try { setUser(JSON.parse(localStorage.getItem("user") || "null")); }
+      catch(_) { setUser(null); }
+    }
+  };
+
+  window.addEventListener('anima:goHome', onGoHome);
+  window.addEventListener('anima:loggedOut', onLoggedOut);
+  window.addEventListener('storage', onStorage);
+  window.addEventListener('anima:analyze', onAnalyze);
+
+  return () => {
+    window.removeEventListener('anima:goHome', onGoHome);
+    window.removeEventListener('anima:loggedOut', onLoggedOut);
+    window.removeEventListener('storage', onStorage);
+    window.removeEventListener('anima:analyze', onAnalyze);
+  };
+}, []);
+
+useEffect(() => {
     if (mode !== "test") return;
 
     async function loadTest() {
       try {
         setLoadErr("");
-        // Evita que TestPage.js haga auto-render cuando lo evaluemos
         window.__ANIMA_EMBEDDED_APP__ = true;
 
         // Si ya está disponible, úsalo
-        if (window.TestPage) {
-          setTestC(() => window.TestPage);
+        if (window.MediaCapture || (window.AnimaUI && window.AnimaUI.MediaCapture)) {
+          const Cmp = window.MediaCapture || window.AnimaUI.MediaCapture;
+          setTestC(() => Cmp);
           return;
         }
 
-        // Necesitamos Babel Standalone presente (lo tienes en index.html)
         if (!window.Babel) {
           throw new Error("Babel no está cargado en index.html");
         }
 
-        // 1) Leer el archivo fuente
-        const res = await fetch("./TestPage.js", { cache: "no-store" });
-        if (!res.ok) throw new Error("No se pudo leer TestPage.js");
+        const res = await fetch("./MediaCapture.js", { cache: "no-store" });
+        if (!res.ok) throw new Error("No se pudo leer MediaCapture.js");
         const src = await res.text();
 
-        // 2) Transpilar JSX -> JS
         const compiled = Babel.transform(src, { presets: ["react"] }).code;
-
-        // 3) Ejecutar el código compilado (define window.TestPage)
-        //   Usa Function para mantener scope global
         new Function(compiled)();
 
-        if (window.TestPage) {
-          setTestC(() => window.TestPage);
-        } else {
-          throw new Error("TestPage no se exportó correctamente");
-        }
+        const Cmp = window.MediaCapture || window.AnimaUI.MediaCapture;
+        if (!Cmp) throw new Error("MediaCapture no se exportó correctamente");
+        
+        setTestC(() => Cmp);
       } catch (err) {
         console.error(err);
-        setLoadErr(err.message || "Error cargando TestPage");
+        setLoadErr(err.message || "Error cargando MediaCapture");
       }
     }
 
     loadTest();
   }, [mode]);
 
+   useEffect(() => {
+    if (mode !== "account") return;
+
+    async function loadAccount() {
+      try {
+        setMiCuentaErr("");
+        window.__ANIMA_EMBEDDED_APP__ = true;
+
+        if (window.MiCuenta) {
+          setMiCuentaC(() => window.MiCuenta);
+          return;
+        }
+
+        if (!window.Babel) throw new Error("Babel no está cargado en index.html");
+
+        const res = await fetch("./MiCuenta.js", { cache: "no-store" });
+        if (!res.ok) throw new Error("No se pudo leer MiCuenta.js");
+        const src = await res.text();
+
+        const compiled = Babel.transform(src, { presets: ["react"] }).code;
+        new Function(compiled)();
+
+        if (window.MiCuenta) {
+          setMiCuentaC(() => window.MiCuenta);
+        } else {
+          throw new Error("MiCuenta no se exportó correctamente");
+        }
+      } catch (err) {
+        console.error(err);
+        setMiCuentaErr(err.message || "Error cargando MiCuenta");
+      }
+    }
+
+    loadAccount();
+  }, [mode]); 
+
+useEffect(() => {
+  if (mode !== "results") return;
+  async function loadResults() {
+    try {
+      setResultsErr("");
+      window.__ANIMA_EMBEDDED_APP__ = true;
+
+      const CmpNow = window.ResultadosTab || (window.AnimaUI && window.AnimaUI.ResultadosTab);
+      if (CmpNow) { setResultsC(() => CmpNow); return; }
+
+      if (!window.Babel) throw new Error("Babel no está cargado en index.html");
+      const res = await fetch("./Resultados.js", { cache: "no-store" });
+      if (!res.ok) throw new Error("No se pudo leer Resultados.js");
+      const src = await res.text();
+
+      const compiled = Babel.transform(src, { presets: ["react"] }).code;
+      new Function(compiled)();
+
+      const Cmp = window.ResultadosTab || (window.AnimaUI && window.AnimaUI.ResultadosTab);
+      if (!Cmp) throw new Error("ResultadosTab no se exportó correctamente");
+      setResultsC(() => Cmp);
+    } catch (err) {
+      console.error(err);
+      setResultsErr(err.message || "Error cargando Resultados");
+    }
+  }
+  loadResults();
+}, [mode]);
+  
+
+ // Carga dinámica de ForgotPassword cuando mode === "forgot-password"
+  useEffect(() => {
+    if (mode !== "forgot-password") return;
+
+    async function loadForgotPwd() {
+      try {
+        setForgotPwdErr("");
+
+        // Si ya está en memoria
+        const CmpNow = window.ForgotPasswordPage || (window.AnimaUI && window.AnimaUI.ForgotPasswordPage);
+        if (CmpNow) { setForgotPwdC(() => CmpNow); return; }
+
+        if (!window.Babel) throw new Error("Babel no está cargado en index.html");
+
+        const res = await fetch("./Olvido_Contraseña_CORREO.js", { cache: "no-store" });
+        if (!res.ok) throw new Error("No se pudo leer Olvido_Contraseña_CORREO.js");
+        const src = await res.text();
+
+        const compiled = Babel.transform(src, { presets: ["react"] }).code;
+        new Function(compiled)();
+
+        const Cmp = window.ForgotPasswordPage || (window.AnimaUI && window.AnimaUI.ForgotPasswordPage);
+        if (!Cmp) throw new Error("ForgotPasswordPage no se exportó correctamente");
+        setForgotPwdC(() => Cmp);
+      } catch (err) {
+        console.error(err);
+        setForgotPwdErr(err.message || "Error cargando Olvidé mi contraseña");
+      }
+    }
+
+    loadForgotPwd();
+  }, [mode]);
+
+  // Carga dinámica de NuevaContrasenaPage cuando mode === "reset-password"
+  useEffect(() => {
+    if (mode !== "reset-password") return;
+
+    async function loadResetPwd() {
+      try {
+        setResetPwdErr("");
+
+        const CmpNow = window.NuevaContrasenaPage || (window.AnimaUI && window.AnimaUI.NuevaContrasenaPage);
+        if (CmpNow) { setResetPwdC(() => CmpNow); return; }
+
+        if (!window.Babel) throw new Error("Babel no está cargado en index.html");
+
+        const res = await fetch("./OC_Cambio.js", { cache: "no-store" });
+        if (!res.ok) throw new Error("No se pudo leer OC_Cambio.js");
+        const src = await res.text();
+
+        const compiled = Babel.transform(src, { presets: ["react"] }).code;
+        new Function(compiled)();
+
+        const Cmp = window.NuevaContrasenaPage || (window.AnimaUI && window.AnimaUI.NuevaContrasenaPage);
+        if (!Cmp) throw new Error("NuevaContrasenaPage no se exportó correctamente");
+        setResetPwdC(() => Cmp);
+      } catch (err) {
+        console.error(err);
+        setResetPwdErr(err.message || "Error cargando Nueva contraseña");
+      }
+    }
+
+    loadResetPwd();
+  }, [mode]);
+
+    // Listener para cambio de contraseña desde Mi Cuenta
+  useEffect(() => {
+    function handleChangePassword(e) {
+      const userData = e.detail || {};
+      setResetData({
+        email: userData.email,
+        isAuthenticated: true // Flag importante
+      });
+      setMode("reset-password");
+    }
+
+    window.addEventListener("anima:changePassword", handleChangePassword);
+    return () => window.removeEventListener("anima:changePassword", handleChangePassword);
+  }, []);
+
+   // Carga dinámica de HistorialTab cuando mode === "history"
+  useEffect(() => {
+    if (mode !== "history") return;
+
+    async function loadHistorial() {
+      try {
+        setHistorialErr("");
+
+        const CmpNow = window.HistorialTab || (window.AnimaUI && window.AnimaUI.HistorialTab);
+        if (CmpNow) { setHistorialC(() => CmpNow); return; }
+
+        if (!window.Babel) throw new Error("Babel no está cargado en index.html");
+
+        const res = await fetch("./Historial.js", { cache: "no-store" });
+        if (!res.ok) throw new Error("No se pudo leer Historial.js");
+        const src = await res.text();
+
+        const compiled = Babel.transform(src, { presets: ["react"] }).code;
+        new Function(compiled)();
+
+        const Cmp = window.HistorialTab || (window.AnimaUI && window.AnimaUI.HistorialTab);
+        if (!Cmp) throw new Error("HistorialTab no se exportó correctamente");
+        setHistorialC(() => Cmp);
+      } catch (err) {
+        console.error(err);
+        setHistorialErr(err.message || "Error cargando Historial");
+      }
+    }
+
+    loadHistorial();
+  }, [mode]);
+
+    // Listener para ir a historial desde Mi Cuenta
+  useEffect(() => {
+    function handleGoHistory() {
+      setMode("history");
+    }
+
+    window.addEventListener("anima:goHistory", handleGoHistory);
+    return () => window.removeEventListener("anima:goHistory", handleGoHistory);
+  }, []);
+
+  // Handler para ver detalles de un análisis del historial
+  function handleViewHistoryResult(item) {
+    // Llevar a resultados con los datos del historial
+    setMode("results");
+    // Aquí puedes pasar los datos a ResultadosTab si lo necesitas
+    // Por ahora solo navegamos
+  }
+
+
+  // Handler cuando se cambia la contraseña desde sesión autenticada
+  function handlePasswordChangedFromAccount() {
+    setResetData(null);
+    // Volver a Mi Cuenta
+    setMode("account");
+  }
+
+
+  // Handler cuando se valida el código (desde ForgotPasswordPage)
+  function handleCodeValidated(data) {
+    setResetData(data); // { email, code, resetToken }
+    setMode("reset-password");
+  }
+
+  // Handler cuando se cambia la contraseña exitosamente
+  function handlePasswordChanged() {
+    // Limpiar datos temporales
+    setResetData(null);
+  }
+
+  
+  // Logout handler
+  function handleLogout() {
+// Confirmar antes de cerrar sesión
+    const ok = window.confirm("¿Estás seguro que quieres cerrar sesión?");
+    if (!ok) return;
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+    setMode("home");
+    // Notificar otras partes si es necesario
+    window.dispatchEvent(new CustomEvent("anima:loggedOut"));
+  }
+
+  function handleSavePlaylist() {
+    // Placeholder: aquí puedes guardar en tu backend el historial del resultado
+    alert("Guardar playlist: placeholder");
+  }
+  function handleRetry() {
+    setMode("test");
+  }
+
+    // Guardar resultado temporalmente antes de ir a login
+  function handleGoLoginFromResults() {
+    // Guardar el estado actual de resultados en sessionStorage
+    try {
+      sessionStorage.setItem('anima.pendingResult', JSON.stringify({
+        emotions: resultsProps.emotions,
+        playlistUrl: resultsProps.playlistUrl,
+        timestamp: Date.now()
+      }));
+    } catch(e) { console.warn('No se pudo guardar resultado temporal', e); }
+    setMode("login");
+  }
+
+  // Recuperar resultado pendiente al iniciar sesión
+  function handleLoggedIn(userData) {
+    setUser(userData);
+    
+    // Verificar si hay un resultado pendiente
+    try {
+      const pending = sessionStorage.getItem('anima.pendingResult');
+      if (pending) {
+        const data = JSON.parse(pending);
+        // Solo recuperar si es reciente (menos de 30 min)
+        if (Date.now() - data.timestamp < 30 * 60 * 1000) {
+          setResultsProps({
+            emotions: data.emotions,
+            playlistUrl: data.playlistUrl,
+            isLoading: false
+          });
+          sessionStorage.removeItem('anima.pendingResult');
+          setMode("results");
+          return;
+        }
+      }
+    } catch(e) { console.warn('Error recuperando resultado pendiente', e); }
+    
+    // Si no hay resultado pendiente, ir a home
+    setMode("home");
+  }
+
   const handlers = {
     onGoLogin:    () => setMode("login"),
     onGoRegister: () => setMode("register"),
-    onGoAccount:  () => alert("Mi cuenta (pendiente)"),
+    onGoAccount:  () => setMode("account"),
     onTryTest:    () => setMode("test"), // abre el modo Test dentro del App
   };
 
   return (
     <div className="min-h-screen">
-      {mode === "home" && <HomeScreen {...handlers} />}
+      {mode === "home" && <HomeScreen {...handlers} isAuthenticated={!!user} onLogout={handleLogout} />}
+  
 
       {mode === "login" && (
         <LoginScreen
           onGoRegister={() => setMode("register")}
           onGoHome={() => setMode("home")}
+          onLoggedIn={handleLoggedIn}
+          onGoForgotPassword={() => setMode("forgot-password")}
         />
       )}
 
       {mode === "register" && (
         <RegisterScreen
-          onGoLogin={() => setMode("login")}
-          onGoHome={() => setMode("home")}
+
+        onGoHome={() => setMode("home")}
+
+         onGoLogin={() => {
+           // Mantener resultado pendiente al cambiar a login
+           setMode("login");
+         }}
+         onLoggedIn={handleLoggedIn}
+          
         />
+      )}
+
+       {mode === "forgot-password" && (
+        forgotPwdErr
+          ? <div style={{color:"#fff", padding:24}}>Error: {forgotPwdErr}</div>
+          : (ForgotPwdC
+              ? <ForgotPwdC
+                  onGoLogin={() => setMode("login")}
+                  onCodeValidated={handleCodeValidated}
+                />
+              : <div style={{color:"#fff", padding:24}}>Cargando...</div>)
+      )}
+
+      {mode === "reset-password" && (
+        resetPwdErr
+          ? <div style={{color:"#fff", padding:24}}>Error: {resetPwdErr}</div>
+          : (ResetPwdC
+              ? <ResetPwdC
+                  resetData={resetData}
+                  onGoLogin={() => setMode("login")}
+                  onGoBack={() => setMode("account")}
+                  onPasswordChanged={
+                    resetData?.isAuthenticated 
+                      ? handlePasswordChangedFromAccount 
+                      : handlePasswordChanged
+                  }
+                />
+              : <div style={{color:"#fff", padding:24}}>Cargando...</div>)
       )}
 
       {mode === "test" && (
@@ -86,6 +481,41 @@ function App(){
           : (TestC
               ? <TestC />
               : <div style={{color:"#fff", padding:24}}>Cargando Test…</div>)
+      )}
+            {mode === "account" && (
+        miCuentaErr
+          ? <div style={{color:"#fff", padding:24}}>Error: {miCuentaErr}</div>
+          : (MiCuentaC
+              ? <MiCuentaC />
+              : <div style={{color:"#fff", padding:24}}>Cargando Cuenta…</div>)
+      )}
+
+      {mode === "results" && (
+        resultsErr
+         ? <div style={{color:"#fff", padding:24}}>Error: {resultsErr}</div>
+         : (ResultsC
+             ? <ResultsC
+                 emotions={resultsProps.emotions}
+                 playlistUrl={resultsProps.playlistUrl}
+                 isLoading={resultsProps.isLoading}
+                 isAuthenticated={!!user}
+                 onSavePlaylist={handleSavePlaylist}
+                 onRetry={handleRetry}
+                 onGoLogin={handleGoLoginFromResults}
+                 onGoHome={() => setMode("home")} 
+               />
+             : <div style={{color:"#fff", padding:24}}>Cargando Resultados…</div>)
+     )}
+     {mode === "history" && (
+        historialErr
+          ? <div style={{color:"#fff", padding:24}}>Error: {historialErr}</div>
+          : (HistorialC
+              ? <HistorialC
+                  onGoBack={() => setMode("account")}
+                  onGoHome={() => setMode("home")}
+                  onViewResult={handleViewHistoryResult}
+                />
+              : <div style={{color:"#fff", padding:24}}>Cargando...</div>)
       )}
     </div>
   );
@@ -96,7 +526,9 @@ function HomeScreen({
   onGoLogin,
   onGoRegister,
   onGoAccount,
-  onTryTest
+  onTryTest,
+  isAuthenticated,
+  onLogout
 }){
   // Paleta y estilos inline (compatibles con tu setup)
   const C = {
@@ -170,22 +602,27 @@ function HomeScreen({
             <div style={{width:32,height:32,borderRadius:10,background:`linear-gradient(135deg,${C.mag},${C.mor})`, boxShadow:"0 10px 30px rgba(0,0,0,.4)"}} />
             <strong>Ánima</strong>
           </a>
-          
-          {/* 
-          <nav style={{display:"flex", gap:4}}>
-            <a href="#" onClick={(e)=>e.preventDefault()} style={S.navA}>Inicio</a>
-            <a href="#" onClick={(e)=>e.preventDefault()} style={S.navA}>Analizar</a>
-            <a href="#" onClick={(e)=>e.preventDefault()} style={S.navA}>Historial</a>
-            <a href="#" onClick={(e)=>e.preventDefault()} style={S.navA}>Soporte</a>
-          </nav>
-        */}
 
         
           <div style={{display:"flex", gap:8}}>
             <button style={S.btn("ghost")} onClick={onTryTest}>Escanear</button>
-            <button style={S.btn("ghost")} onClick={onGoLogin}>Iniciar sesión</button>
-            <button style={S.btn("grad")}  onClick={onGoRegister}>Crear cuenta</button>
-            <button style={S.btn("ghost")} onClick={onGoAccount}>Mi cuenta ▾</button>
+
+            {/* Mostrar botones de login/registro solo si NO está autenticado */}
+            {!isAuthenticated && (
+              <>
+                <button style={S.btn("ghost")} onClick={onGoLogin}>Iniciar sesión</button>
+                <button style={S.btn("grad")}  onClick={onGoRegister}>Crear cuenta</button>
+              </>
+            )}
+
+            {/* Mostrar Mi cuenta siempre */}
+            {isAuthenticated && (
+              <button style={S.btn("ghost")} onClick={onGoAccount}>Mi cuenta ▾</button>
+            )}
+            {/* Mostrar Cerrar sesión solo si está autenticado */}
+            {isAuthenticated && (
+              <button style={S.btn("ghost")} onClick={onLogout}>Cerrar sesión</button>
+            )}
           </div>
         </div>
       </header>
@@ -202,9 +639,19 @@ function HomeScreen({
           Únete a la comunidad que ya descubre playlists personalizadas con un simple escaneo.
           Detectamos tu emoción y te sugerimos música para acompañar o transformar tu estado de ánimo.
         </p>
-        <div style={S.heroBar}>
-          <button style={S.btn("ghost")} onClick={onGoLogin}>Iniciar sesión</button>
-          <button style={S.btn("grad")}  onClick={onGoRegister}>Crear cuenta</button>
+            <div style={S.heroBar}>
+
+              {!isAuthenticated ? (
+            <>
+              <button style={S.btn("ghost")} onClick={onGoLogin}>Iniciar sesión</button>
+              <button style={S.btn("grad")}  onClick={onGoRegister}>Crear cuenta</button>
+            </>
+          ) : (
+            <div style={{display:"flex", gap:8, alignItems:"center"}}>
+              <span style={{color:"#cfcfe6"}}>¡Bienvenido!</span>
+            </div>
+          )}
+
         </div>
       </section>
 
@@ -262,7 +709,11 @@ function HomeScreen({
           <p style={{color:C.text2, marginTop:0}}>Haz el test y recibí tu primera playlist personalizada.</p>
           <button style={S.bigBtn} onClick={onTryTest}>PRUÉBALO</button>
           <div style={{marginTop:16}}>
-            <button style={{...S.btn("ghost"), marginRight:8}} onClick={onGoRegister}>Crear una cuenta</button>
+
+            {!isAuthenticated && (
+              <button style={{...S.btn("ghost"), marginRight:8}} onClick={onGoRegister}>Crear una cuenta</button>
+            )}
+
           </div>
         </div>
       </section>
@@ -275,7 +726,7 @@ function HomeScreen({
 }
 
 /* =================== LOGIN =================== */
-function LoginScreen({ onGoRegister, onGoHome }){
+function LoginScreen({ onGoRegister, onGoHome, onLoggedIn, onGoForgotPassword }){
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -296,10 +747,13 @@ function LoginScreen({ onGoRegister, onGoHome }){
       const data = await res.json().catch(()=> ({}));
       if(!res.ok){ throw new Error(data?.message || "Credenciales inválidas"); }
 
+      // Guardar token/usuario y notificar App
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      alert("¡Login exitoso! (token guardado)");
-      // window.location.href = "/analizar";
+      // Actualizar App (si se pasó el handler)
+      if (typeof onLoggedIn === "function") onLoggedIn(data.user);
+      else onGoHome?.();
+
     }catch(err){
       setError(err.message || "Error al iniciar sesión");
     }finally{
@@ -349,7 +803,11 @@ function LoginScreen({ onGoRegister, onGoHome }){
 
             <div className="row between">
               <label className="check"><input type="checkbox"/><span>Recuérdame</span></label>
-              <a className="link" href="#" onClick={(e)=>e.preventDefault()}>¿Olvidaste tu contraseña?</a>
+
+             <a className="link" href="#" onClick={(e)=>{e.preventDefault(); if(typeof onGoForgotPassword === 'function') onGoForgotPassword();}}>
+               ¿Olvidaste tu contraseña?
+             </a>
+
             </div>
 
             {error && <div className="error">{error}</div>}
@@ -376,11 +834,12 @@ function LoginScreen({ onGoRegister, onGoHome }){
 }
 
 /* =================== REGISTRO =================== */
-function RegisterScreen({ onGoLogin, onGoHome }){
+function RegisterScreen({ onGoLogin, onGoHome, onLoggedIn }){
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState("");
   const [okMsg, setOkMsg]   = useState("");
+  const redirectTimer = React.useRef(null);
 
   async function handleSubmit(e){
     e.preventDefault();
@@ -416,7 +875,28 @@ function RegisterScreen({ onGoLogin, onGoHome }){
       formEl.reset();
       setShowPwd(false);
       setError("");
-      setOkMsg("¡Cuenta creada! Ahora inicia sesión.");
+      setOkMsg("¡Cuenta creada! Redirigiendo...");
+
+      // Redirigir a Login tras un breve lapso para que el usuario vea el mensaje
+      if (redirectTimer.current) clearTimeout(redirectTimer.current);
+      redirectTimer.current = setTimeout(() => {
+       // Si el backend ya devuelve token en registro, podemos iniciar sesión directamente
+       if (data.token && data.user) {
+         localStorage.setItem("token", data.token);
+         localStorage.setItem("user", JSON.stringify(data.user));
+
+         if (typeof onLoggedIn === "function") {
+           onLoggedIn(data.user);
+         } else {
+           onGoHome?.();
+         }
+
+       } else {
+         onGoLogin?.();
+       }
+
+      }, 900);
+
     }catch(err){
       setOkMsg("");
       setError(err.message || "Error al registrar");
@@ -424,6 +904,12 @@ function RegisterScreen({ onGoLogin, onGoHome }){
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimer.current) clearTimeout(redirectTimer.current);
+    };
+  }, []);
 
   return (
     <div className="layout">
