@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Ánima — Test de emociones</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- React 18 UMD -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <!-- Babel para transformar JSX en el navegador (solo DEV) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body style="margin:0">
+  <div id="root"></div>
+
+  <!-- 1) UI de José (usa JSX) -->
+  <script type="text/babel" data-type="module" src="./TestPage.js"></script>
+  <!-- 2) Integración (no usa JSX) -->
+  <script src="./anima-api.js"></script>
+</body>
+</html>
