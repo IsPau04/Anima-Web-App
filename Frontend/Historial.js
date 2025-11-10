@@ -391,12 +391,16 @@
             "div",
             { style: S.emotions },
             item.emotions.slice(0, 3).map(function (e, i) {
-              return React.createElement(
-                "span",
-                { key: i, style: S.emotionBadge },
-                e.name + " " + Math.round(e.score * 100) + "%"
-              );
-            })
+  const raw = Number(e?.score) || 0;
+  const pct = raw > 1 ? raw : raw * 100;   // si viene 0–1 → *100; si ya está en 0–100 → igual
+  const pctText = Math.round(pct) + "%";
+  return React.createElement(
+    "span",
+    { key: i, style: S.emotionBadge },
+    e.name + " " + pctText
+  );
+})
+
           )
       );
     }
@@ -537,19 +541,7 @@
             })
           ),
 
-        React.createElement(
-          "div",
-          { style: S.devNote },
-          React.createElement("strong", null, "📋 Integración Backend:"),
-          React.createElement("br", null),
-          "• GET /api/history → { history: [{ id, timestamp, emotions, playlistUrl }] }",
-          React.createElement("br", null),
-          "• DELETE /api/history/:id → { success: boolean }",
-          React.createElement("br", null),
-          "• Requiere token de autenticación en headers",
-          React.createElement("br", null),
-          "• Items actuales: " + history.length
-        )
+       
       )
     );
   }

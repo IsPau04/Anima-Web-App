@@ -9,38 +9,75 @@
     text:"#FFFFFF", text2:"#C9C9D1", card:"#1B1727",
     border:"rgba(255,255,255,.12)"
   };
+    // Breakpoints simples
+  const W = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const isSm = W < 640;
+  const isMd = W >= 640 && W < 992;
+  const isLg = W >= 992;
 
-  const S = {
+
+    const S = {
     page:{
       minHeight:"100vh", color:C.text,
       background:`linear-gradient(120deg,${C.bg1} 0%, ${C.bg2} 55%, ${C.bg3} 100%)`,
       fontFamily:"system-ui, Segoe UI, Inter, Roboto, Arial"
     },
-    container:{maxWidth:1200, margin:"0 auto", padding:"24px"},
+    container:{
+      maxWidth: isLg ? 1200 : (isMd ? 960 : 640),
+      margin:"0 auto",
+      paddingLeft:  isSm ? "max(16px, env(safe-area-inset-left))"  : "24px",
+      paddingRight: isSm ? "max(16px, env(safe-area-inset-right))" : "24px",
+      paddingTop:   isSm ? 12 : 16,
+      paddingBottom:isSm ? 16 : 20
+    },
     header:{
       position:"sticky", top:0, zIndex:10,
       background:"rgba(0,0,0,.12)", borderBottom:`1px solid ${C.border}`,
       backdropFilter:"saturate(120%) blur(6px)"
     },
-    row:{display:"flex", alignItems:"center", justifyContent:"space-between", gap:16},
+    row:{display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap"},
     logo:{width:32, height:32, borderRadius:10,
       background:`linear-gradient(135deg,${C.mag},${C.mor})`, boxShadow:"0 10px 30px rgba(0,0,0,.4)"},
     btn:(kind)=>({
-      display:"inline-block", padding:"10px 16px", borderRadius:14, textDecoration:"none",
+      display:"inline-flex", alignItems:"center", justifyContent:"center",
+      minHeight: isSm ? 36 : 40,
+      padding:   isSm ? "8px 12px" : "10px 16px",
+      borderRadius:14, textDecoration:"none",
       color:"#fff", fontWeight:600, cursor:"pointer",
+      fontSize: isSm ? 13 : 14, lineHeight:1.1,
       ...(kind==="ghost" && { border:`1px solid ${C.border}`, color:"#e5e5f5", background:"transparent" }),
       ...(kind==="grad"  && { background:`linear-gradient(90deg,${C.mag},${C.mor})` }),
       ...(kind==="soft"  && { background:"rgba(255,255,255,.06)", border:`1px solid ${C.border}` }),
-      ...(kind==="disabled" && { opacity:.5, cursor:"not-allowed" })
+      ...(kind==="disabled" && { opacity:.55, cursor:"not-allowed" })
     }),
-    grid:{display:"grid", gap:20, gridTemplateColumns:"repeat(2, 1fr)", alignItems:"start", marginTop:24},
-    card:{background:"rgba(27,23,39,.72)", border:`1px solid ${C.border}`, borderRadius:18, padding:18, backdropFilter:"blur(8px)"},
-    videoBox:{width:"100%", aspectRatio:"16/9", background:"#000", borderRadius:12, overflow:"hidden", border:`1px solid ${C.border}`},
+    grid:{
+      display:"grid",
+      gap: isSm ? 12 : 20,
+      gridTemplateColumns: isLg ? "1.2fr .8fr" : "1fr",
+      alignItems:"start",
+      marginTop: isSm ? 16 : 24
+    },
+    card:{
+      background:"rgba(27,23,39,.72)",
+      border:`1px solid ${C.border}`,
+      borderRadius:18,
+      padding: isSm ? 14 : 18,
+      backdropFilter:"blur(8px)"
+    },
+    videoBox:{
+      width:"100%",
+      aspectRatio: isSm ? "4/3" : "16/9",
+      background:"#000",
+      borderRadius:12,
+      overflow:"hidden",
+      border:`1px solid ${C.border}`
+    },
     preview:{width:"100%", borderRadius:12, border:`1px solid ${C.border}`},
-    tip:{fontSize:13, color:C.text2},
-    badge:{display:"inline-block", padding:"6px 10px", borderRadius:999, border:`1px solid ${C.border}`, color:"#E7E7FF", fontSize:12},
+    tip:{fontSize: isSm ? 12 : 13, color:C.text2},
+    badge:{display:"inline-block", padding:"6px 10px", borderRadius:999, border:`1px solid ${C.border}`, color:"#E7E7FF", fontSize: isSm ? 11 : 12},
     footer:{color:"#A0A0BE", fontSize:13, marginTop:28}
   };
+
 
   function MediaCapture() {
     // Referencias y estado
