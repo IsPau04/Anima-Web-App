@@ -13,9 +13,11 @@
 <body style="margin:0">
   <div id="root"></div>
 
-  <!-- 1) UI de José (usa JSX) -->
+<!-- Cargar ResultadosTab primero -->
+  <script type="text/babel" src="./ResultadosTab.js"></script>
+  
+  <!-- Luego TestPage y la integración -->
   <script type="text/babel" data-type="module" src="./TestPage.js"></script>
-  <!-- 2) Integración (no usa JSX) -->
   <script src="./anima-api.js"></script>
 </body>
 </html>

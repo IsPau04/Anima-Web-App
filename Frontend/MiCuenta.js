@@ -42,6 +42,81 @@
       Triste: 14
     });
 
+    // === Backend base ===
+const API = (window.API_URL || "http://localhost:4000");
+
+// === Mapa de emociones (por si la BD trae nombres en inglés) ===
+const EMO_MAP = {
+  HAPPY: "Alegre",
+  CALM: "Neutral", NEUTRAL: "Neutral",
+  SAD: "Triste",
+  ANGRY: "Enojado",
+  SURPRISED: "Sorpresa",
+  CONFUSED: "Confundido",
+  FEAR: "Miedo",
+  DISGUST: "Disgusto",
+};
+const [showLogout, setShowLogout] = useState(false);
+
+
+// Etiquetas visibles en el UI (ajústalas si usas otras)
+const UI_LABELS = ["Alegre","Neutral","Triste","Enojado","Sorpresa","Miedo","Confundido","Disgusto"];
+
+// Normaliza [{emotion,count/percent}] → {Alegre:%, Neutral:%...}
+// Normaliza [{emotion,count,percent}] → {Alegre:%, Neutral:%...} con mapeo tolerante
+function normalizeStats(payload) {
+  const out = Object.fromEntries(UI_LABELS.map(k => [k, 0]));
+  const arr = (payload && Array.isArray(payload.stats)) ? payload.stats : [];
+  const total = (typeof payload?.total === "number" && payload.total > 0)
+    ? payload.total : arr.reduce((s, r) => s + (Number(r.count) || 0), 0);
+
+  // Mapa robusto EN->ES y ES->ES (en mayúsculas)
+  const MAP = {
+    // inglés → español
+    HAPPY: "Alegre",
+    CALM: "Neutral",
+    NEUTRAL: "Neutral",
+    SAD: "Triste",
+    ANGRY: "Enojado",
+    SURPRISED: "Sorpresa",
+    CONFUSED: "Confundido",
+    FEAR: "Miedo",
+    DISGUST: "Disgusto",
+    // español (por si el backend ya lo manda en español)
+    ALEGRE: "Alegre",
+    NEUTRAL: "Neutral",
+    TRISTE: "Triste",
+    ENOJADO: "Enojado",
+    SORPRESA: "Sorpresa",
+    MIEDO: "Miedo",
+    CONFUNDIDO: "Confundido",
+    DISGUSTO: "Disgusto"
+  };
+
+  for (const r of arr) {
+    const raw = String(r.emotion ?? r.nombre ?? "").trim();
+    if (!raw) continue;
+
+    const keyUpper = raw.toUpperCase();
+    let label = MAP[keyUpper];
+
+    // si no mapeó, intenta usar tal cual si coincide con UI_LABELS
+    if (!label && UI_LABELS.includes(raw)) label = raw;
+
+    if (!label || out[label] === undefined) continue;
+
+    // Usa percent si viene; si no, calcula con count/total
+    let p = (typeof r.percent === "number")
+      ? r.percent
+      : (total ? Math.round(((Number(r.count) || 0) * 100) / total) : 0);
+
+    out[label] = Math.max(0, Math.min(100, p | 0));
+  }
+  return out;
+}
+
+
+
     // Punto único de integración para backend
     useEffect(function () {
       function mapUserToProfile(u) {
@@ -50,7 +125,9 @@
           displayName: u.displayName || u.nombre || u.name || profile.displayName,
           username: u.username || u.userName || (u.email ? u.email.split("@")[0] : profile.username),
           email: u.email || profile.email,
-          lastLogin: u.lastLogin || u.ultimaSesion || u.updatedAt || profile.lastLogin
+          lastLogin: u.lastLogin || u.ultimaSesion || u.updatedAt || profile.lastLogin,
+          createdAt: u.createdAt || profile.createdAt
+
         };
       }
 
@@ -94,26 +171,23 @@
     }
 
     function handleLogout() {
-      const ok = window.confirm("¿Estás seguro que quieres cerrar sesión?");
-      if (!ok) return;
+  try {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
+    localStorage.removeItem("anima.token");
+    localStorage.removeItem("anima.user");
+    sessionStorage.removeItem("anima.token");
+    sessionStorage.removeItem("anima.user");
+  } catch (err) {
+    console.error(err);
+  }
 
-      try {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        sessionStorage.removeItem("token");
-        sessionStorage.removeItem("user");
-        // variantes legacy
-        localStorage.removeItem("anima.token");
-        localStorage.removeItem("anima.user");
-        sessionStorage.removeItem("anima.token");
-        sessionStorage.removeItem("anima.user");
-      } catch (err) {
-        console.error(err);
-      }
-
-      window.dispatchEvent(new CustomEvent("anima:loggedOut"));
-      window.dispatchEvent(new CustomEvent("anima:goHome"));
-    }
+  // Delega navegación al App (que también tiene listener a este evento)
+  window.dispatchEvent(new CustomEvent("anima:loggedOut"));
+  window.dispatchEvent(new CustomEvent("anima:goHome"));
+}
 
     function goChangePassword(e) {
       if (e && e.preventDefault) e.preventDefault();
@@ -128,6 +202,73 @@
       if (e && e.preventDefault) e.preventDefault();
       window.dispatchEvent(new CustomEvent("anima:goHistory"));
     }
+    async function loadProfile() {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API}/api/me`, {
+      headers: { "Authorization": token ? `Bearer ${token}` : undefined }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.message || res.statusText);
+
+    // Aplica en el header del perfil
+    window.AnimaProfile?.set?.({
+      displayName: data.username || "Usuario Ánima",
+      username: data.username || (data.email ? data.email.split("@")[0] : "usuario"),
+      email: data.email || "sin-correo@anima.app",
+      lastLogin: data.lastAccess || null,
+       createdAt: data.createdAt || null  
+    });
+  } catch (e) {
+    console.warn("ME error:", e);
+  }
+}
+
+function canUsePeriod(p) {
+  const created = profile.createdAt ? new Date(profile.createdAt) : null;
+  if (!created || Number.isNaN(created.getTime())) return true;
+  const ageMs = Date.now() - created.getTime();
+  const needMs = p === "6m" ? 6*30*24*3600*1000
+              : p === "30d" ? 30*24*3600*1000
+              : 7*24*3600*1000;
+  return ageMs >= needMs;
+}
+
+async function loadStats(p) {
+  try {
+    setPeriod(p);
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API}/api/me/stats?period=${p}`, {
+      headers: { "Authorization": token ? `Bearer ${token}` : undefined }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.message || res.statusText);
+
+    const normalized = normalizeStats(data);
+    window.AnimaProfile?.setStats?.({ period: p, stats: normalized });
+    setStatsNote(
+  data?.clamped
+    ? `* Ajustado al inicio de tu cuenta (${new Date(data.effectiveStart).toLocaleDateString()}).`
+    : ""
+);
+  } catch (e) {
+    console.warn("STATS error:", e);
+    window.AnimaProfile?.setStats?.({ period: p, stats: normalizeStats({ stats: [], total: 0 }) });
+  }
+}
+
+// Carga inicial al abrir "Mi cuenta"
+useEffect(() => {
+  loadProfile();
+  loadStats("7d");
+}, []);
+
+// Reemplaza el placeholder para tabs (esto disparará la recarga)
+function setPeriodUI(p) { if (period !== p) loadStats(p); }
+
+
+const [statsNote, setStatsNote] = useState("");
+
 
     // Estilos
     const styles = {
@@ -276,6 +417,25 @@
         background: "linear-gradient(90deg, #FF2DAA, #6C63FF)",
       },
       note: { marginTop: 10, fontSize: 12, color: "#D4C5EC", opacity: 0.85 },
+
+        // --- Modal Cerrar sesión ---
+  modalBack: {
+    position: "fixed", inset: 0, background: "rgba(0,0,0,.55)",
+    display: "grid", placeItems: "center", zIndex: 1000
+  },
+  modal: {
+    width: "min(520px,92vw)", background: "rgba(20,17,35,.96)", color: "#fff",
+    border: "1px solid rgba(255,255,255,.12)", borderRadius: 16, padding: 18,
+    boxShadow: "0 20px 60px rgba(0,0,0,.5)"
+  },
+  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  modalTitle:  { fontSize: 18, fontWeight: 800, margin: 0 },
+  xBtn:        { background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,.18)", borderRadius: 10, padding: "6px 10px", cursor: "pointer" },
+  modalBody:   { color: "#C9C9D1", marginTop: 8, lineHeight: 1.5 },
+  modalBtns:   { display: "flex", gap: 10, marginTop: 14, justifyContent: "flex-end" },
+  btnGhost:    { background: "transparent", color: "#EBDDF9", border: "1px solid rgba(255,255,255,.18)", padding: "10px 14px", borderRadius: 12, fontWeight: 700, cursor: "pointer" },
+  btnPrimary:  { background: "linear-gradient(90deg,#FF2DAA,#6C63FF)", color:"#fff", border: "none", padding: "10px 16px", borderRadius: 12, fontWeight: 800, cursor: "pointer" },
+
     };
 
     const periodLabel =
@@ -285,10 +445,7 @@
         ? "Últimos 30 días"
         : "Últimos 6 meses";
 
-    function setPeriodUI(p) {
-      setPeriod(p);
-      // Placeholder: backend puede actualizar con window.AnimaProfile.setStats
-    }
+
 
     function barColorFor(label) {
       switch (label.toLowerCase()) {
@@ -310,6 +467,7 @@
           return styles.barFillBase.background;
       }
     }
+    
 
     return React.createElement(
       "div",
@@ -334,20 +492,18 @@
           React.createElement("div", { style: styles.title }, "Mi cuenta")
         ),
         React.createElement(
-          "button",
-          {
-            style: styles.secondary,
-            onClick: handleLogout,
-          },
-          "Cerrar sesión"
-        )
+  "button",
+  { style: styles.secondary, onClick: () => setShowLogout(true) },
+  "Cerrar sesión"
+)
+
       ),
 
       // Main container
       React.createElement(
         "main",
         { style: styles.container },
-
+        
         // Card de perfil
         React.createElement(
           "section",
@@ -401,76 +557,93 @@
           React.createElement(
             "div",
             { style: styles.chipsRow },
-            React.createElement(
-              "span",
-              {
-                style: period === "7d" ? styles.chipActive : styles.chip,
-                onClick: function () {
-                  if (period !== "7d") setPeriodUI("7d");
-                },
-              },
-              "Últimos 7 días"
-            ),
-            React.createElement(
-              "span",
-              {
-                style: period === "30d" ? styles.chipActive : styles.chip,
-                onClick: function () {
-                  if (period !== "30d") setPeriodUI("30d");
-                },
-              },
-              "Últimos 30 días"
-            ),
-            React.createElement(
-              "span",
-              {
-                style: period === "6m" ? styles.chipActive : styles.chip,
-                onClick: function () {
-                  if (period !== "6m") setPeriodUI("6m");
-                },
-              },
-              "Últimos 6 meses"
-            )
+            // Reemplaza los 3 <span> dentro de styles.chipsRow por esto:
+
+React.createElement(
+  "span",
+  {
+    style: period === "7d"
+      ? styles.chipActive
+      : (canUsePeriod("7d") ? styles.chip : Object.assign({}, styles.chip, { opacity: .4, cursor: "not-allowed" })),
+    onClick: function () {
+      if (canUsePeriod("7d") && period !== "7d") setPeriodUI("7d");
+    }
+  },
+  "Últimos 7 días"
+),
+
+React.createElement(
+  "span",
+  {
+    style: period === "30d"
+      ? styles.chipActive
+      : (canUsePeriod("30d") ? styles.chip : Object.assign({}, styles.chip, { opacity: .4, cursor: "not-allowed" })),
+    onClick: function () {
+      if (canUsePeriod("30d") && period !== "30d") setPeriodUI("30d");
+    }
+  },
+  "Últimos 30 días"
+),
+
+React.createElement(
+  "span",
+  {
+    style: period === "6m"
+      ? styles.chipActive
+      : (canUsePeriod("6m") ? styles.chip : Object.assign({}, styles.chip, { opacity: .35, cursor: "not-allowed" })),
+    onClick: function () {
+      if (canUsePeriod("6m") && period !== "6m") setPeriodUI("6m");
+    }
+  },
+  "Últimos 6 meses"
+)
+
           ),
 
-          // Barras de emociones
-          Object.keys(stats).map(function (label) {
-            const value = stats[label];
-            const v = Math.max(0, Math.min(100, Number(value) || 0));
-            return React.createElement(
-              "div",
-              { key: label, style: styles.barRow },
-              React.createElement("div", { style: styles.barLabel }, label),
-              React.createElement(
-                "div",
-                { style: styles.barTrack },
-                React.createElement("div", {
-                  style: Object.assign({}, styles.barFillBase, {
-                    width: v + "%",
-                    background: barColorFor(label),
-                  }),
-                })
-              ),
-              React.createElement(
-                "div",
-                {
-                  style: {
-                    fontSize: 12,
-                    opacity: 0.85,
-                    textAlign: "right",
-                  },
-                },
-                v + "%"
-              )
-            );
+// --- Barras de emociones (solo >0% y ordenadas) ---
+(function () {
+  const entries = Object.entries(stats)
+    .filter(([_, v]) => Number(v) > 0)
+    .sort((a, b) => Number(b[1]) - Number(a[1]));
+
+  if (entries.length === 0) {
+    return React.createElement(
+      "div",
+      { style: { fontSize: 13, opacity: .85, marginTop: 6 } },
+      "No hay datos en este período."
+    );
+  }
+
+  return entries.map(function ([label, value]) {
+    const v = Math.max(0, Math.min(100, Number(value) || 0));
+    return React.createElement(
+      "div",
+      { key: label, style: styles.barRow },
+      React.createElement("div", { style: styles.barLabel }, label),
+      React.createElement(
+        "div",
+        { style: styles.barTrack },
+        React.createElement("div", {
+          style: Object.assign({}, styles.barFillBase, {
+            width: v + "%",
+            background: barColorFor(label),
           }),
+        })
+      ),
+      React.createElement(
+        "div",
+        { style: { fontSize: 12, opacity: 0.85, textAlign: "right" } },
+        v + "%"
+      )
+    );
+  });
+})(),
+
 
           React.createElement(
             "div",
-            { style: styles.note },
-            "Período: " +
-              periodLabel +
-              ". Placeholder — el backend puede llamar window.AnimaProfile.setStats({ period: '7d', stats: { Alegre: 50, Neutral: 30, Triste: 20 } })."
+              { style: styles.note },
+  `Período: ${periodLabel}. ${statsNote || ""}`
           )
         ),
 
@@ -520,7 +693,22 @@
             },
             "Ver historial"
           )
+        ),
+         // Modal Confirmar Cerrar Sesión
+      showLogout && React.createElement("div", { style: styles.modalBack, onClick:(e)=>{ if(e.target===e.currentTarget) setShowLogout(false); } },
+        React.createElement("div", { style: styles.modal, role:"dialog", "aria-modal":"true" },
+          React.createElement("div", { style: styles.modalHeader },
+            React.createElement("h4", { style: styles.modalTitle }, "¿Cerrar sesión?"),
+            React.createElement("button", { style: styles.xBtn, onClick:()=>setShowLogout(false) }, "✕")
+          ),
+          React.createElement("div", { style: styles.modalBody }, "¿Estás seguro que quieres cerrar sesión?"),
+          React.createElement("div", { style: styles.modalBtns },
+            React.createElement("button", { style: styles.btnGhost, onClick:()=>setShowLogout(false) }, "Cancelar"),
+            React.createElement("button", { style: styles.btnPrimary, onClick:()=>{ setShowLogout(false); handleLogout(); } }, "Cerrar sesión")
+          )
         )
+      )
+        
       )
     );
   }

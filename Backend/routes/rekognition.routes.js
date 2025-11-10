@@ -11,12 +11,10 @@ const router = Router();
 // 1) Subida en MEMORIA (no escribe a disco)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB máx.
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB máx. (Rekognition con Bytes)
   fileFilter: (_req, file, cb) => {
-    // Acepta solo imágenes
-    if (!/^image\//i.test(file.mimetype)) {
-      return cb(new Error('Solo se permiten archivos de imagen'));
-    }
+    const ok = file.mimetype === 'image/jpeg' || file.mimetype === 'image/png';
+    if (!ok) return cb(new Error('unsupported_format')); // ← devolvemos clave
     cb(null, true);
   }
 });
@@ -67,14 +65,32 @@ router.post('/detect-faces', upload.single('image'), async (req, res) => {
         orientationCorrection: result.OrientationCorrection || null
       }
     });
-  } catch (err) {
-    console.error('DetectFaces error:', err);
-    // Mensaje controlado hacia el cliente
-    res.status(500).json({
-      error: 'Fallo en Rekognition',
-      details: (err && err.name) || 'UNKNOWN_ERROR'
+  }  catch (err) {
+  console.error('DetectFaces error:', err);
+
+  // Multer (tamaño / formato)
+  if (err?.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({
+      error: 'file_too_large',
+      message: 'La imagen excede 5MB. Comprime o usa otra.'
     });
   }
+  if (err?.message === 'unsupported_format') {
+    return res.status(415).json({
+      error: 'unsupported_format',
+      message: 'Formato no soportado. Usa JPG o PNG (no HEIC/WEBP/CMYK).'
+    });
+  }
+
+  // AWS (credenciales/región/permiso)
+  return res.status(500).json({
+    error: 'rekognition_error',
+    name: err?.name,
+    code: err?.$metadata?.httpStatusCode,
+    message: err?.message
+  });
+}
+
 });
 
 export default router;

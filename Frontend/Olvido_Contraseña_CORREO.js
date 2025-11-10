@@ -53,6 +53,8 @@
     const [code, setCode] = useState(["", "", "", ""]);
     const inputsRef = useRef([]);
 
+    const [hasRequested, setHasRequested] = useState(false);
+    const [cooldown, setCooldown] = useState(0);
     const [sent, setSent] = useState(false);
     const [sending, setSending] = useState(false);
     const [validating, setValidating] = useState(false);
@@ -427,18 +429,7 @@
           )
         ),
 
-        // Nota de integración para backend
-        React.createElement(
-          "div",
-          { style: S.devNote },
-          React.createElement("strong", null, "📋 Integración Backend:"),
-          React.createElement("br", null),
-          "• POST /auth/forgot-password → { email }",
-          React.createElement("br", null),
-          "• POST /auth/verify-reset-code → { email, code }",
-          React.createElement("br", null),
-          "• Usa API_BASE de App.js: ", API_BASE
-        )
+  
       )
     );
   }

@@ -564,21 +564,7 @@
             )
         ),
 
-        React.createElement(
-          "div",
-          { style: S.devNote },
-          React.createElement("strong", null, "📋 Integración Backend:"),
-          React.createElement("br", null),
-          isAuthenticated
-            ? "• POST /auth/change-password (con token)"
-            : "• POST /auth/reset-password",
-          React.createElement("br", null),
-          isAuthenticated
-            ? "• Body: { currentPassword, newPassword }"
-            : "• Body: { email, code, resetToken?, newPassword }",
-          React.createElement("br", null),
-          isAuthenticated && "• Usuario: " + (resetData.email || "N/A")
-        )
+       
       )
     );
   }
