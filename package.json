@@ -1,0 +1,26 @@
+{
+  "name": "anima-web-app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IsPau04/Anima-Web-App.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/IsPau04/Anima-Web-App/issues"
+  },
+  "homepage": "https://github.com/IsPau04/Anima-Web-App#readme",
+  "description": "",
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}
